@@ -1,0 +1,35 @@
+#!/bin/bash
+# This script is to send mail with different setting mentioned in conf file passed to the script
+REV=$1
+REPOS=$2
+ConfFile=$3
+
+#capturing default repo name
+RepositoryName=$(grep Repo $ConfFile | grep -v ^# | cut -d "=" -f2)
+#counter for number of configuration apart from default
+Counter=$(grep count $ConfFile | grep -v ^# | cut -d "=" -f2)
+
+#running for all configuration mentioned in the conf file config1, config2....
+for (( i=1; i<=$Counter; i++ ))
+do
+	Project=$(grep Config$i $ConfFile | grep -v ^# | cut -d "=" -f2 | cut -d ":" -f1)
+	To=$(grep Config$i $ConfFile | grep -v ^# | cut -d "=" -f2 | cut -d ":" -f2)
+	dirname=$(svnlook -r $REV dirs-changed $REPOS | grep ^$Project)
+	#Dir_present=`echo $dirname | grep "$Project"`
+	if [ "x${dirname}" != "x" ]; then
+		NewRepo=$(grep Config$i $ConfFile | grep -v ^# | cut -d "=" -f2 | cut -d ":" -f3)
+		if [ -n $NewRepo ]; then
+			RepositoryName=$NewRepo
+		fi
+		/usr/bin/svnnotify --revision "$REV" --repos-path "$REPOS" \
+		 --smtp-user svn-mailer --smtp-pass svn123 --subject-cx --subject-prefix "[$RepositoryName:commit] " --max-sub-length 128 \
+		 --with-diff --handler Alternative --alt HTML::ColorDiff \
+		 --to "$To" --from 'svn-mailer@inmobi.com' &
+	exit 0;
+	fi
+done
+To=$(grep Config.Default $ConfFile | grep -v ^# | cut -d "=" -f2 )
+/usr/bin/svnnotify --revision "$REV" --repos-path "$REPOS" \
+ --smtp-user svn-mailer --smtp-pass svn123 --subject-cx --subject-prefix "[$RepositoryName:commit] " --max-sub-length 128 \
+ --with-diff --handler Alternative --alt HTML::ColorDiff \
+ --to "$To" --from 'svn-mailer@inmobi.com' &
